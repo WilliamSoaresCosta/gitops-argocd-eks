@@ -10,12 +10,7 @@ no Git, e o Argo CD (que roda dentro do cluster) aplica. Ninguém roda `kubectl 
 Subi isso no meu laboratório e o app ficou Synced/Healthy. Escrevi como foi, com prints e os
 erros que encontrei, aqui: [GitOps do zero no EKS](https://williamsoares.com/blog/gitops-do-zero-no-eks).
 
-```mermaid
-flowchart LR
-    ci[GitHub Actions] -- muda a tag --> git[este repo]
-    argo[Argo CD no EKS] -- lê --> git
-    argo -- aplica --> pods[pods]
-```
+<p align="center"><img src="assets/fluxo.svg" alt="Fluxo: commit, CI, registry, repo GitOps, Argo CD e EKS" width="100%" /></p>
 
 ## Estrutura
 
