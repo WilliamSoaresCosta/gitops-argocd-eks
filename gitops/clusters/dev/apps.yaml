@@ -1,0 +1,42 @@
+# Um app do Argo CD para cada pasta em apps/, usando o overlay dev.
+# App novo = criar a pasta apps/<nome>/ com base + overlays/dev. Nada mais.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-dev
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/WilliamSoaresCosta/gitops-argocd-eks.git
+        revision: main
+        directories:
+          - path: gitops/apps/*
+  template:
+    metadata:
+      name: "{{ .path.basename }}-dev"
+      labels:
+        environment: dev
+    spec:
+      project: apps
+      source:
+        repoURL: https://github.com/WilliamSoaresCosta/gitops-argocd-eks.git
+        targetRevision: main
+        path: "{{ .path.path }}/overlays/dev"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{ .path.basename }}-dev"
+      syncPolicy:
+        automated:
+          prune: true    # remove do cluster o que saiu do Git
+          selfHeal: true # desfaz mudança feita na mão
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m

@@ -1,0 +1,20 @@
+# Copie para terraform.tfvars e preencha. O terraform.tfvars está no .gitignore.
+aws_region          = "us-east-1"
+expected_account_id = "000000000000" # trava: o plan falha se a credencial for de outra conta
+
+cluster_name       = "meu-cluster-eks"
+eks_admin_role_arn = null # ou "arn:aws:iam::000000000000:role/eks-admin"
+
+# Versões fixas (conferidas em 06/10/2026). Atualizar de propósito, lendo o changelog.
+argocd_chart_version      = "10.9.6"
+argocd_apps_chart_version = "2.0.6"
+
+# Este próprio repositório (público) serve de repositório GitOps de exemplo.
+gitops_repo_url     = "https://github.com/WilliamSoaresCosta/gitops-argocd-eks.git"
+gitops_revision     = "main"
+gitops_cluster_path = "gitops/clusters/dev"
+
+tags = {
+  Env       = "dev"
+  ManagedBy = "terraform"
+}

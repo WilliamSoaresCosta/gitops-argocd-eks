@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-node
+  labels:
+    app.kubernetes.io/name: api-node
+    app.kubernetes.io/part-of: laboratorio
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5 # versões guardadas para rollback
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api-node
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0 # sobe a nova antes de derrubar a antiga
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api-node
+        app.kubernetes.io/part-of: laboratorio
+    spec:
+      serviceAccountName: api-node
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 20 # a API fecha com calma no SIGTERM (até 10s)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # usuário "node" da imagem
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: api-node # o overlay troca pelo ECR + tag (SHA do commit)
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: APP_ENV
+              value: local # o overlay define o ambiente
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: api-node-dev
+
+resources:
+  - ../../base
+
+labels:
+  - pairs:
+      app.kubernetes.io/instance: api-node-dev
+      environment: dev
+
+# O pipeline da aplicação atualiza SÓ o newTag desta imagem (images[0]) e faz commit.
+images:
+  - name: api-node
+    newName: ghcr.io/williamsoarescosta/docker-node-hardened
+    newTag: "0.1.0" # imagem do repo docker-node-hardened (tag imutável, nunca latest)
+
+patches:
+  - path: patch-deployment.yaml

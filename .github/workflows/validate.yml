@@ -1,0 +1,83 @@
+# Roda em todo PR e push na main: Terraform formatado e válido, manifests que geram YAML
+# e nenhum segredo em texto puro.
+name: Validar
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Trivy do release oficial, versão fixa + checksum (mesmo padrão do docker-node-hardened)
+  TRIVY_VERSION: "0.75.0"
+  TRIVY_SHA256: "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f"
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: terraform/argocd
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.0
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: terraform validate (sem backend, sem credencial)
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+  manifests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: kustomize build em todos os overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/render
+          for dir in gitops/apps/*/overlays/*/; do
+            name="$(echo "${dir}" | cut -d/ -f3)-$(basename "${dir}")"
+            echo "::group::${dir}"
+            kubectl kustomize "${dir}" > "/tmp/render/${name}.yaml"
+            echo "ok"
+            echo "::endgroup::"
+          done
+
+      - name: Instalar Trivy (versão fixa + checksum)
+        run: |
+          FILE="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -sSfL -o "/tmp/${FILE}" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${FILE}"
+          echo "${TRIVY_SHA256}  /tmp/${FILE}" | sha256sum -c -
+          tar -xzf "/tmp/${FILE}" -C /tmp trivy
+
+      # Escaneia o YAML final (base + overlay). Escanear o patch sozinho dá falso positivo.
+      - name: Trivy nos manifests renderizados (barra HIGH e CRITICAL)
+        run: /tmp/trivy config --severity HIGH,CRITICAL --exit-code 1 /tmp/render
+
+      - name: Nada de segredo em texto puro
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -rInE "kind: *Secret$|github_pat_|ghp_|AKIA[0-9A-Z]{16}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY" \
+               --exclude-dir=.git --exclude-dir=.github .; then
+            echo "::error::Segredo encontrado. Segredo de app vai para um cofre (Secrets Manager + External Secrets), nunca para o Git."
+            exit 1
+          fi

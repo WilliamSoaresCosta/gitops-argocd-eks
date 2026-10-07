@@ -1,0 +1,20 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+terraform.tfvars
+backend.hcl
+crash.log
+
+# Chaves (nunca no Git)
+*.pem
+*_rsa
+*_ed25519
+argocd-*
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
